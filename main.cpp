@@ -5,8 +5,8 @@
 
 // Parâmetros:
 #define POPULATION_SIZE 100
-#define BACKPACK_SIZE 3
-#define BACKPACK_SIZE 40
+#define QUANTITY_ITENS 3
+#define BACKPACK_SIZE 100
 #define MAX_GENERATIONS 100
 #define MUTATION_RATE 4 // 4% de chance de mutação
 
@@ -16,7 +16,8 @@ vector<Solution> population;
 
 int fitness(Solution &solucao)
 {
-  int totalWeight, totalValue = 0;
+  int totalWeight = 0;
+  int totalValue = 0;
   for (int i = 0; i < solucao.solution.size(); i++)
   {
     if (solucao.solution[i] == 1)
@@ -25,7 +26,6 @@ int fitness(Solution &solucao)
       totalValue += itens[i].getValue();
     }
   }
-
   if (totalWeight <= BACKPACK_SIZE)
   {
 
@@ -44,9 +44,9 @@ int fitness(Solution &solucao)
 Solution createSolution()
 {
   Solution solucao;
-  for (int i = 0; i > BACKPACK_SIZE; i++)
+  for (int i = 0; i < QUANTITY_ITENS; i++)
   {
-    solucao.solution.push_back(rand() % 2); // Adicionas 0 ou 1 aleatoriamente
+    solucao.solution.push_back(rand() % 2); // Adiciona 0 ou 1 aleatoriamente
   }
 
   solucao.fitness = fitness(solucao);
@@ -62,6 +62,7 @@ void createPopulation()
   {
     population.push_back(createSolution());
   }
+  cout << "Populacaoo criada com sucesso" << endl;
 }
 
 Solution randomSelection()
@@ -115,7 +116,7 @@ void evolution()
     {
       int mutation_pos = rand() % filho.solution.size();
       filho.solution[mutation_pos] = 1 - filho.solution[mutation_pos]; // 0->1 ou 1->0
-      cout << "Aconteceu uma mutação" << endl;
+      // cout << "Aconteceu uma mutacao" << mutation_pos << endl;
     }
     new_population.push_back(filho);
   }
@@ -140,20 +141,23 @@ Solution getBestSolution()
 int main(void)
 {
   // Cria os itens da mochila
-  srand(time(0));
-  int min_value = 10, max_value = 150;
-  int min_weight = 1, max_weight = 60;
+  srand(time(NULL));
+  int min_value = 10;
+  int max_value = 150;
+  int min_weight = 1;
+  int max_weight = 60;
 
-  for (int i = 0; i < BACKPACK_SIZE; i++)
+  for (int i = 0; i < QUANTITY_ITENS; i++)
   {
-    int random_value = min_value + rand() % (max_value - min_value + 1);
-    int random_weight = min_weight + rand() % (max_weight - min_weight + 1);
+    int random_value = min_value + rand() % (max_value - min_value + 1);     // Gera valor entre minValue e maxValue
+    int random_weight = min_weight + rand() % (max_weight - min_weight + 1); // Gera peso entre minWeight e maxWeight
 
     itens.push_back(Item(random_value, random_weight));
+    cout << "Valor:" << itens[i].getValue() << "Peso:" << itens[i].getWeight() << endl;
   }
 
   // Cria a população inicial
-  void createPopulation();
+  createPopulation();
 
   // Evoluir a população
   for (int i = 0; i < MAX_GENERATIONS; i++)
