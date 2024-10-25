@@ -2,15 +2,22 @@
 #include "solution.cpp"
 #include <cstdlib>
 #include <ctime>
+#include <fstream>
+#include <vector>
+#include <iostream>
+#include <algorithm>
 
-// Parâmetros:
+using namespace std;
+
+// Parametros
 #define POPULATION_SIZE 100
-#define QUANTITY_ITENS 3
-#define BACKPACK_SIZE 100
-#define MAX_GENERATIONS 100
-#define MUTATION_RATE 4 // 4% de chance de mutação
+#define QUANTITY_ITENS 10
+#define BACKPACK_SIZE 101
+#define MAX_GENERATIONS 1000
+#define MUTATION_RATE 2 // 2% de chance de mutacao
+#define ITERATIONS 1000
 
-// Vetores de itens da mochila e da população
+// Vetores de itens da mochila e da populacao
 vector<Item> itens;
 vector<Solution> population;
 
@@ -26,18 +33,14 @@ int fitness(Solution &solucao)
       totalValue += itens[i].getValue();
     }
   }
-  if (totalWeight <= BACKPACK_SIZE)
+  int fitness_value = totalValue - totalWeight;
+  if (totalWeight <= BACKPACK_SIZE && fitness_value >= 0)
   {
-
-    // Soma total dos valores:
-    // return totalValue;
-
-    // Soma das diferenças entre valor e peso:
-    return (totalValue - totalWeight);
+    return fitness_value;
   }
   else
   {
-    return 0; // Ultrapassou o peso máximo, portanto o fitness é 0
+    return 1; // Ultrapassou o peso maximo, portanto o fitness e 1
   }
 }
 
@@ -48,41 +51,77 @@ Solution createSolution()
   {
     solucao.solution.push_back(rand() % 2); // Adiciona 0 ou 1 aleatoriamente
   }
-
   solucao.fitness = fitness(solucao);
   return solucao;
 }
 
 void createPopulation()
 {
-  // Boa prática
   population.clear();
-
   for (int i = 0; i < POPULATION_SIZE; i++)
   {
     population.push_back(createSolution());
   }
-  cout << "Populacaoo criada com sucesso" << endl;
+
+  if (population.empty())
+  {
+    cerr << "Erro: Populacao inicial esta vazia." << endl;
+    exit(1);
+  }
 }
 
-Solution randomSelection()
+pair<Solution, Solution> rouletteSelection(vector<Solution> population)
 {
-  // Retorna um indivíduo aleatório
-  return population[rand() % POPULATION_SIZE];
-
-  /*
-  Podemos fazer com que ele escolha dois e retorne
-  o com maior fitness, mas acho que vai dar ELITISMO
-
-  Solution &sol1 = population[rand()%POPULATION_SIZE];
-  Solution &sol2 = population[rand()%POPULATION_SIZE];
-
-  if(sol1.fitness > sol2.fitness){
-    return sol1;
+  if (population.empty())
+  {
+    cerr << "Erro: Tentativa de selecao com populacao vazia." << endl;
+    exit(1);
   }
-  else
-    return sol2;
-  */
+
+  int totalFitness = 0;
+  for (const Solution &ind : population)
+  {
+    totalFitness += ind.fitness;
+  }
+
+  if (totalFitness == 0)
+  {
+    cerr << "Erro: Fitness total da populacao e zero. Nao ha solucoes viaveis para selecao." << endl;
+    exit(1);
+  }
+
+  pair<Solution, Solution> parents;
+  for (int parentIdx = 0; parentIdx < 2; parentIdx++)
+  {
+    int randomValue = rand() % totalFitness;
+    int partialSum = 0;
+    bool parentSelected = false;
+
+    for (size_t i = 0; i < population.size(); i++)
+    {
+      partialSum += population[i].fitness;
+      if (partialSum >= randomValue)
+      {
+        if (parentIdx == 0)
+          parents.first = population[i];
+        else
+          parents.second = population[i];
+
+        totalFitness -= population[i].fitness;
+        population.erase(population.begin() + i);
+        parentSelected = true;
+        break;
+      }
+    }
+
+    if (!parentSelected)
+    {
+      cerr << "Erro: Nao foi possivel selecionar um pai na roleta." << endl;
+      exit(1);
+    }
+  }
+
+  return parents;
 }
 
 Solution crossover(const Solution &x, const Solution &y)
@@ -101,92 +140,153 @@ Solution crossover(const Solution &x, const Solution &y)
   return filho;
 }
 
-void evolution()
+void evolution(Solution &best_solution, int &generation_found, Solution &last_solution_in_last_generation)
 {
   vector<Solution> new_population;
+  int best_fitness = best_solution.fitness;
+
   for (int i = 0; i < POPULATION_SIZE; i++)
   {
-    // Seleção dos pais
-    Solution x = randomSelection();
-    Solution y = randomSelection();
-    // Crossover
-    Solution filho = crossover(x, y);
-    // Mutação
-    if (rand() % 100 + 1 <= MUTATION_RATE)
+    pair<Solution, Solution> parents = rouletteSelection(population);
+    Solution filho = crossover(parents.first, parents.second);
+
+    if (rand() % 100 < MUTATION_RATE)
     {
       int mutation_pos = rand() % filho.solution.size();
-      filho.solution[mutation_pos] = 1 - filho.solution[mutation_pos]; // 0->1 ou 1->0
-      // cout << "Aconteceu uma mutacao" << mutation_pos << endl;
+      filho.solution[mutation_pos] = 1 - filho.solution[mutation_pos];
     }
+
+    filho.fitness = fitness(filho);
     new_population.push_back(filho);
+
+    // Atualiza a melhor solucao global
+    if (filho.fitness > best_fitness)
+    {
+      best_solution = filho;
+      best_fitness = filho.fitness;
+      generation_found = i;
+    }
+
+    // Armazena a ultima solucao gerada na ultima geracao
+    if (i == POPULATION_SIZE - 1)
+    {
+      last_solution_in_last_generation = filho;
+    }
   }
   population = new_population;
+
+  if (population.empty())
+  {
+    cerr << "Erro: Populacao apos evolucao esta vazia." << endl;
+    exit(1);
+  }
 }
 
 Solution getBestSolution()
 {
-  Solution melhor = population[0]; // Inicializa o melhor
-
-  for (int i = 0; i < population.size(); i++)
+  Solution best = population[0];
+  for (int i = 1; i < population.size(); i++)
   {
-    if (population[i].fitness > melhor.fitness)
+    if (population[i].fitness > best.fitness)
     {
-      melhor = population[i];
+      best = population[i];
     }
   }
+  return best;
+}
 
-  return melhor;
+void loadItemsFromFile(const string &filename)
+{
+  ifstream file(filename);
+  if (!file.is_open())
+  {
+    cerr << "Erro ao abrir o arquivo " << filename << endl;
+    exit(1);
+  }
+
+  int value, weight;
+  itens.clear();
+  while (file >> value >> weight)
+  {
+    itens.push_back(Item(value, weight));
+  }
+  file.close();
+
+  if (itens.empty())
+  {
+    cerr << "Erro: Nenhum item foi carregado a partir do arquivo." << endl;
+    exit(1);
+  }
 }
 
 int main(void)
 {
-  // Cria os itens da mochila
   srand(time(NULL));
-  int min_value = 10;
-  int max_value = 150;
-  int min_weight = 1;
-  int max_weight = 60;
+  loadItemsFromFile("itens.txt");
 
-  for (int i = 0; i < QUANTITY_ITENS; i++)
+  // Abre o arquivo de saída para salvar os resultados
+  ofstream outputFile("resultados.txt");
+  if (!outputFile.is_open())
   {
-    int random_value = min_value + rand() % (max_value - min_value + 1);     // Gera valor entre minValue e maxValue
-    int random_weight = min_weight + rand() % (max_weight - min_weight + 1); // Gera peso entre minWeight e maxWeight
-
-    itens.push_back(Item(random_value, random_weight));
-    cout << "Valor:" << itens[i].getValue() << "Peso:" << itens[i].getWeight() << endl;
+    cerr << "Erro ao abrir o arquivo de saida resultados.txt." << endl;
+    exit(1);
   }
 
-  // Cria a população inicial
-  createPopulation();
-
-  // Evoluir a população
-  for (int i = 0; i < MAX_GENERATIONS; i++)
+  for (int exec = 1; exec <= ITERATIONS; exec++)
   {
-    evolution();
-  }
+    cout << "\nExecucao " << exec << ":\n";
 
-  // Pega a melhor solução
-  Solution best_solution = getBestSolution();
+    createPopulation(); // Reinicia a populacao inicial aleatoriamente em cada iteracao
+    Solution best_solution = getBestSolution();
+    Solution last_solution_in_last_generation;
+    int generation_found = 0;
 
-  // Imprime os resultados:
-  cout << "Melhor fitness: " << best_solution.fitness << endl;
-
-  cout << "Itens selecionados: ";
-  for (int i = 0; i < best_solution.solution.size(); i++)
-  {
-    if (best_solution.solution[i] == 1)
+    for (int i = 0; i < MAX_GENERATIONS; i++)
     {
-      cout << "Item " << i + 1 << " Com valor: " << itens[i].getValue() << " E peso: " << itens[i].getWeight() << endl;
+      evolution(best_solution, generation_found, last_solution_in_last_generation);
     }
+
+    int totalValue = 0, totalWeight = 0;
+    for (int i = 0; i < best_solution.solution.size(); i++)
+    {
+      if (best_solution.solution[i] == 1)
+      {
+        totalValue += itens[i].getValue();
+        totalWeight += itens[i].getWeight();
+      }
+    }
+
+    int lastGenValue = 0, lastGenWeight = 0;
+    for (int i = 0; i < last_solution_in_last_generation.solution.size(); i++)
+    {
+      if (last_solution_in_last_generation.solution[i] == 1)
+      {
+        lastGenValue += itens[i].getValue();
+        lastGenWeight += itens[i].getWeight();
+      }
+    }
+
+    // Imprime no terminal
+    cout << best_solution.fitness << " | " << totalValue << " | " << totalWeight << " | "
+         << generation_found << " | " << lastGenValue << ", " << lastGenWeight << endl;
+
+    // Salva no arquivo
+    outputFile << best_solution.fitness << " | " << totalValue << " | " << totalWeight << " | "
+               << generation_found << " | " << lastGenValue << ", " << lastGenWeight << endl;
   }
+
+  // Fecha o arquivo de saida
+  outputFile.close();
+  cout << "\nResultados salvos no arquivo resultados.txt\n";
+
   return 0;
 }
 
 /*
 Passos:
-1 - Gerar uma população incial aleatória
+1 - Gerar uma populacao incial aleatoria
 2 - Usar a fit
-3 - Checar se os critérios foram atingidos
+3 - Checar se os criterios foram atingidos
 4 - Escolher pais
 5 - Selection();
 6 - Crossover();
@@ -194,13 +294,16 @@ Passos:
 8 - Usar a fit
 
 Objetivo:
-Preencher a mochila com o maior valor possível não ultrapassando o peso
+Preencher a mochila com o maior valor possivel nao ultrapassando o peso
 Valor   Peso
   x      y
 
 
 
-Ideias de função fit:
-1) Soma das diferenças entre valor e peso
+Ideias de funcao fit:
+1) Soma das diferencas entre valor e peso
 2) Soma total dos valores
+
+
+Melhor Fitness|Soma dos Valores(melhor)|Soma dos Pesos(melhor)|Iteracao que a solucao foi achada| Valor e Peso da ultima iteracao
 */
