@@ -11,10 +11,10 @@ using namespace std;
 
 // Parametros
 #define POPULATION_SIZE 100
-#define QUANTITY_ITENS 10
+#define QUANTITY_ITENS 20
 #define BACKPACK_SIZE 101
-#define MAX_GENERATIONS 1000
-#define MUTATION_RATE 2 // 2% de chance de mutacao
+#define MAX_GENERATIONS 2500 // Normalmente é 1000
+#define MUTATION_RATE 2      // 2% de chance de mutacao
 #define ITERATIONS 1000
 
 // Vetores de itens da mochila e da populacao
@@ -44,12 +44,50 @@ int fitness(Solution &solucao)
   }
 }
 
+// Função para verificar se uma solução está dentro da capacidade da mochila
+bool isWithinCapacity(const Solution &solucao)
+{
+  int totalWeight = 0;
+  for (int i = 0; i < solucao.solution.size(); i++)
+  {
+    if (solucao.solution[i] == 1)
+    {
+      totalWeight += itens[i].getWeight();
+    }
+  }
+  return totalWeight <= BACKPACK_SIZE;
+}
+
+// Encontra a melhor solução dentro da capacidade da mochila
+Solution findBestValidSolution()
+{
+  // Ordena a população com base no fitness em ordem decrescente
+  sort(population.begin(), population.end(), [](const Solution &a, const Solution &b)
+       { return a.fitness > b.fitness; });
+
+  // Procura a melhor solução dentro da capacidade
+  for (const Solution &sol : population)
+  {
+    if (isWithinCapacity(sol))
+    {
+      return sol; // Retorna a primeira solução válida encontrada
+    }
+  }
+
+  // Se nenhuma solução válida for encontrada, retorna uma solução padrão
+  Solution fallback_solution;
+  fallback_solution.fitness = 1;
+  fallback_solution.solution = vector<int>(QUANTITY_ITENS, 0); // Genes todos 0
+  return fallback_solution;
+}
+
 Solution createSolution()
 {
   Solution solucao;
   for (int i = 0; i < QUANTITY_ITENS; i++)
   {
-    solucao.solution.push_back(rand() % 2); // Adiciona 0 ou 1 aleatoriamente
+    // solucao.solution.push_back(rand() % 2); // Adiciona 0 ou 1 aleatoriamente
+    solucao.solution.push_back(1);
   }
   solucao.fitness = fitness(solucao);
   return solucao;
@@ -82,12 +120,6 @@ pair<Solution, Solution> rouletteSelection(vector<Solution> population)
   for (const Solution &ind : population)
   {
     totalFitness += ind.fitness;
-  }
-
-  if (totalFitness == 0)
-  {
-    cerr << "Erro: Fitness total da populacao e zero. Nao ha solucoes viaveis para selecao." << endl;
-    exit(1);
   }
 
   pair<Solution, Solution> parents;
@@ -159,8 +191,8 @@ void evolution(Solution &best_solution, int &generation_found, Solution &last_so
     filho.fitness = fitness(filho);
     new_population.push_back(filho);
 
-    // Atualiza a melhor solucao global
-    if (filho.fitness > best_fitness)
+    // Atualiza a melhor solucao global apenas se estiver dentro da capacidade
+    if (isWithinCapacity(filho) && filho.fitness > best_fitness)
     {
       best_solution = filho;
       best_fitness = filho.fitness;
@@ -180,19 +212,6 @@ void evolution(Solution &best_solution, int &generation_found, Solution &last_so
     cerr << "Erro: Populacao apos evolucao esta vazia." << endl;
     exit(1);
   }
-}
-
-Solution getBestSolution()
-{
-  Solution best = population[0];
-  for (int i = 1; i < population.size(); i++)
-  {
-    if (population[i].fitness > best.fitness)
-    {
-      best = population[i];
-    }
-  }
-  return best;
 }
 
 void loadItemsFromFile(const string &filename)
@@ -225,7 +244,7 @@ int main(void)
   loadItemsFromFile("itens.txt");
 
   // Abre o arquivo de saída para salvar os resultados
-  ofstream outputFile("resultados.txt");
+  ofstream outputFile("resultados1.txt");
   if (!outputFile.is_open())
   {
     cerr << "Erro ao abrir o arquivo de saida resultados.txt." << endl;
@@ -237,7 +256,7 @@ int main(void)
     cout << "\nExecucao " << exec << ":\n";
 
     createPopulation(); // Reinicia a populacao inicial aleatoriamente em cada iteracao
-    Solution best_solution = getBestSolution();
+    Solution best_solution = findBestValidSolution();
     Solution last_solution_in_last_generation;
     int generation_found = 0;
 
@@ -266,13 +285,22 @@ int main(void)
       }
     }
 
-    // Imprime no terminal
-    cout << best_solution.fitness << " | " << totalValue << " | " << totalWeight << " | "
-         << generation_found << " | " << lastGenValue << ", " << lastGenWeight << endl;
+    // Caso especial: se a solução retornada for a padrão
+    if (best_solution.fitness == 1 && totalValue == 0 && totalWeight == 0)
+    {
+      cout << "1 | 0 | 0 | 0 | " << lastGenValue << ", " << lastGenWeight << endl;
+      outputFile << "1 | 0 | 0 | 0 | " << lastGenValue << ", " << lastGenWeight << endl;
+    }
+    else
+    {
+      // Imprime no terminal
+      cout << best_solution.fitness << " | " << totalValue << " | " << totalWeight << " | "
+           << generation_found << " | " << lastGenValue << ", " << lastGenWeight << endl;
 
-    // Salva no arquivo
-    outputFile << best_solution.fitness << " | " << totalValue << " | " << totalWeight << " | "
-               << generation_found << " | " << lastGenValue << ", " << lastGenWeight << endl;
+      // Salva no arquivo
+      outputFile << best_solution.fitness << " | " << totalValue << " | " << totalWeight << " | "
+                 << generation_found << " | " << lastGenValue << ", " << lastGenWeight << endl;
+    }
   }
 
   // Fecha o arquivo de saida
