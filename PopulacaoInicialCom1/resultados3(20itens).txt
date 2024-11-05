@@ -1,4 +1,3 @@
-Resultados com fitness sendo Valores - Peso
 1 | 0 | 0 | 0 | 490, 467
 1 | 0 | 0 | 0 | 469, 520
 1 | 0 | 0 | 0 | 593, 536

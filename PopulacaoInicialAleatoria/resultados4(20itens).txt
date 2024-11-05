@@ -1,4 +1,3 @@
-Resultados com fitness sendo Soma dos Valores
 1 | 0 | 0 | 0 | 406, 455
 139 | 139 | 98 | 64 | 127, 96
 141 | 141 | 88 | 8 | 141, 88
