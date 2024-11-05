@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Load data
-filename = "PopulacaoInicialAleatoria/resultados3(20itens).txt"  # Update with the correct file path if needed
+filename = "2500geracoes.txt"  # Update with the correct file path if needed
 data = pd.read_csv(filename, sep="|", header=None)
 
 # Rename columns for easier access
@@ -32,35 +32,44 @@ data["Sum of Weights (Best) (%)"] = (
     data["Sum of Weights (Best)"] / data["Sum of Weights (Best)"].max()
 ) * 100
 
+# Calculate the percentage of times the best solution was found
+best_fitness_value = data["Best Fitness"].max()
+best_fitness_count = (data["Best Fitness"] == best_fitness_value).sum()
+best_fitness_percentage = (best_fitness_count / len(data)) * 100
+
+print(
+    f"Percentage of times the best solution was found: {best_fitness_percentage:.2f}%"
+)
+
 # Plot histograms
 plt.figure(figsize=(10, 8))
 
 # Best Fitness histogram (normalized)
 plt.subplot(2, 2, 1)
-plt.hist(data["Best Fitness (%)"], bins=40, edgecolor="black")
+plt.hist(data["Best Fitness (%)"], bins=40, color="blue", edgecolor="black")
 plt.title("Histograma do Melhor Fitness")
 plt.xlabel("Melhor Fitness (%)")
 plt.ylabel("Frequência")
 
 # Sum of Values (Best) histogram (normalized)
 plt.subplot(2, 2, 2)
-plt.hist(data["Sum of Values (Best) (%)"], bins=40, edgecolor="black")
+plt.hist(data["Sum of Values (Best) (%)"], bins=40, color="blue", edgecolor="black")
 plt.title("Soma dos valores da melhor solução")
 plt.xlabel("Valores da melhor solução (%)")
 plt.ylabel("Frequência")
 
 # Sum of Weights (Best) histogram (normalized)
 plt.subplot(2, 2, 3)
-plt.hist(data["Sum of Weights (Best) (%)"], bins=40, edgecolor="black")
+plt.hist(data["Sum of Weights (Best) (%)"], bins=40, color="blue", edgecolor="black")
 plt.title("Soma dos pesos da melhor solução")
 plt.xlabel("Pesos da melhor solução (%)")
 plt.ylabel("Frequência")
 
 # Iteration Found histogram (not normalized)
 plt.subplot(2, 2, 4)
-plt.hist(data["Iteration Found"], bins=40, edgecolor="black")
-plt.title("Iteração em que a melhor solução foi encontrada")
-plt.xlabel("Iteração")
+plt.hist(data["Iteration Found"], bins=40, color="blue", edgecolor="black")
+plt.title("Geração em que a melhor solução foi encontrada")
+plt.xlabel("Geração")
 plt.ylabel("Frequência")
 
 # Adjust layout and display the plots
